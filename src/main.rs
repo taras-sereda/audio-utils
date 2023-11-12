@@ -2,8 +2,7 @@
 //
 // Executed in 101.834416ms
 // Wow, my Rust total wav duration calculator is 300 times quicker than bellow approach that
-// utilizes ffprobe and GNUparallel 
-// ffprobe and GNUparallel: 
+// utilizes ffprobe and GNUparallel:
 /*
  time find . -type f -name "*.wav" -print0 | parallel -0 ffprobe -hide_banner -v error -of default=noprint_wrappers=1:nokey=1 -show_entries stream=duration | paste - -sd+ - | bc
 44294.400000
@@ -12,12 +11,16 @@ parallel -0 ffprobe -hide_banner -v error -of  -show_entries stream=duration  14
 paste - -sd+ -  0.01s user 0.03s system 0% cpu 29.345 total
 bc  0.00s user 0.00s system 0% cpu 29.346 total
  */
-use clap;
+use clap::Parser;
 use glob::glob;
 use hound;
 use std::fs::File;
 use std::time::{Duration, Instant};
 
+#[derive(Parser)]
+struct Cli {
+    path: std::path::PathBuf,
+}
 fn wav_duration(f_name: &String) -> f32 {
     let f = File::open(f_name).unwrap();
     let reader = hound::WavReader::new(f).unwrap();
@@ -37,8 +40,11 @@ fn wav_size(f_name: &String) {
 }
 fn main() {
     let start = Instant::now();
-    let dir_name = std::env::args().nth(1).expect("Failed to read argument");
-    let glob_pattern = dir_name.clone() + "/**/*.wav";
+    let args = Cli::parse();
+
+    let glob_pattern = args.path.clone().into_os_string().into_string().unwrap() + "/**/*.wav";
+
+    //let glob_pattern = args.path.to_str().unwrap().to_owned() + "/**/*.wav";
     let mut total_dur = 0.0;
     let mut num_entires = 0;
     for entry in glob(&glob_pattern).expect("Failed to read glob pattern") {
@@ -52,7 +58,7 @@ fn main() {
         }
     }
 
-    println!("Calucalting total duration for directory: {}", dir_name);
+    println!("Calucalting total duration for directory: {:?}", args.path);
     println!("Number of wav files: {}", num_entires);
     println!("Total duration: {} hours", total_dur / 60.0 / 60.0);
     println!("Total duration: {} seconds", total_dur);
