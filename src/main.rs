@@ -1,5 +1,9 @@
-// Run: cargo run -- dir_path
+// Rayon
+// Run: cargo run  --release --
+// Executed in 80.586541ms
 //
+// Baseline
+// Run: cargo run -- dir_path
 // Executed in 101.834416ms
 // Wow, my Rust total wav duration calculator is 300 times quicker than bellow approach that
 // utilizes ffprobe and GNUparallel:
@@ -42,8 +46,8 @@ where
 {
     //let sleep_dur = time::Duration::from_millis(1000);
     //thread::sleep(sleep_dur);
-    let th_idx = current_thread_index().unwrap();
-    println!("{}", th_idx);
+    //let th_idx = current_thread_index().unwrap();
+    //println!("{}", th_idx);
     let f = File::open(f_name.as_ref()).unwrap();
     let reader = hound::WavReader::new(f).unwrap();
     let spec = reader.spec();
