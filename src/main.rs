@@ -1,8 +1,12 @@
 // Rayon
-// Run: cargo run  --release --
+// Run: cargo run --release --
 // Executed in 80.586541ms
 //
 // Baseline
+// Run: cargo run --release -- dir_path
+// Executed in 89.358584ms
+//
+// Baseline(debug)
 // Run: cargo run -- dir_path
 // Executed in 101.834416ms
 // Wow, my Rust total wav duration calculator is 300 times quicker than bellow approach that
