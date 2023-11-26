@@ -1,5 +1,8 @@
+// Run with options to output manifest
+// ./target/release/audio-utils -w ~/data/poly/audios  res/man.jsonl
+//
 // Rayon
-// Run: cargo run --release --
+// Run: cargo run --release -- dir_path
 // Executed in 80.586541ms
 //
 // Baseline
@@ -25,14 +28,25 @@ use glob::glob;
 use hound;
 use rayon::prelude::*;
 use rayon::{current_num_threads, current_thread_index};
+use serde_json::json;
 use std::fs::File;
+use std::io::{BufWriter, Write};
 use std::path::Path;
 use std::time::{Duration, Instant};
 use std::{thread, time};
-
 #[derive(Parser)]
+#[command(author, version, about, long_about = None)]
 struct Cli {
+    ///input directory with *.wav files
     path: std::path::PathBuf,
+
+    ///write manifest to jsonl or not
+    #[arg(short, long)]
+    write_manifest: bool,
+
+    ///otput manifest path
+    #[arg(default_value = "manifest.jsonl")]
+    output_path: String,
 }
 fn wav_duration(f_name: &String) -> f32 {
     let f = File::open(f_name).unwrap();
@@ -76,6 +90,21 @@ fn main() -> Result<(), glob::PatternError> {
     let glob_pattern = args.path.clone().into_os_string().into_string().unwrap() + "/**/*.wav";
     let entries: Vec<_> = glob(&glob_pattern)?.filter_map(|path| path.ok()).collect();
     let durations: Vec<_> = entries.par_iter().map(|path| wav_duration2(path)).collect();
+    let iter = std::iter::zip(entries, durations.clone());
+
+    if args.write_manifest {
+        let f_desc = File::create(args.output_path).expect("something went wrong");
+        let mut writer = BufWriter::new(f_desc);
+        for elem in iter {
+            let json_value = json!({
+                "name": elem.0.file_name().unwrap().to_str(),
+                "duration": elem.1.round()});
+            serde_json::to_writer(&mut writer, &json_value).unwrap();
+            write!(writer, "\n").expect("failed to write");
+        }
+        writer.flush().unwrap();
+    }
+
     let total_dur: f32 = durations.iter().sum();
     let num_entires = durations.len();
 
