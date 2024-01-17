@@ -23,96 +23,126 @@ paste - -sd+ -  0.01s user 0.03s system 0% cpu 29.345 total
 bc  0.00s user 0.00s system 0% cpu 29.346 total
  */
 
-use clap::Parser;
+use clap::{Parser, Subcommand};
 use glob::glob;
-use hound;
+use rayon::current_num_threads;
 use rayon::prelude::*;
-use rayon::{current_num_threads, current_thread_index};
-use serde_json::json;
-use std::fs::File;
-use std::io::{BufWriter, Write};
-use std::path::Path;
-use std::time::{Duration, Instant};
-use std::{thread, time};
+use serde::{Deserialize, Serialize};
+use std::io;
+use std::io::{BufRead, BufReader, BufWriter, Write};
+use std::time::Instant;
+use std::{fs::File, path::Path};
+
+mod playground;
+mod utils;
+
+use crate::utils::wav_duration2;
+
 #[derive(Parser)]
-#[command(author, version, about, long_about = None)]
+// #[command(author, version, about, long_about = None)]
 struct Cli {
-    ///input directory with *.wav files
-    path: std::path::PathBuf,
-
-    ///write manifest to jsonl or not
-    #[arg(short, long)]
-    write_manifest: bool,
-
-    ///otput manifest path
-    #[arg(default_value = "manifest.jsonl")]
-    output_path: String,
-}
-fn wav_duration(f_name: &String) -> f32 {
-    let f = File::open(f_name).unwrap();
-    let reader = hound::WavReader::new(f).unwrap();
-    let spec = reader.spec();
-    let duration = reader.duration();
-    let dur_sec = duration as f32 / spec.sample_rate as f32;
-
-    dur_sec
+    #[clap(subcommand)]
+    command: Command,
 }
 
-fn wav_duration2<AR>(f_name: AR) -> f32
+#[derive(Subcommand)]
+enum Command {
+    /// Compute audio stats. At the moment the following stats are computed: number of wav files; total duration of all wav files.
+    Stats {
+        ///input directory with *.wav files
+        #[arg(default_value = "./")]
+        path: std::path::PathBuf,
+
+        ///write manifest to jsonl or not
+        #[arg(short, long)]
+        write_manifest: bool,
+
+        ///otput manifest path
+        #[arg(default_value = "manifest.jsonl")]
+        output_path: String,
+    },
+    /// Read audio stats from provided manifest file.
+    Manifest { path: std::path::PathBuf },
+}
+
+fn read_lines<P>(filename: P) -> io::Result<io::Lines<BufReader<File>>>
 where
-    AR: AsRef<Path>,
+    P: AsRef<Path>,
 {
-    //let sleep_dur = time::Duration::from_millis(1000);
-    //thread::sleep(sleep_dur);
-    //let th_idx = current_thread_index().unwrap();
-    //println!("{}", th_idx);
-    let f = File::open(f_name.as_ref()).unwrap();
-    let reader = hound::WavReader::new(f).unwrap();
-    let spec = reader.spec();
-    let duration = reader.duration();
-    let dur_sec = duration as f32 / spec.sample_rate as f32;
-
-    dur_sec
+    let file = File::open(filename).unwrap();
+    Ok(BufReader::new(file).lines())
 }
 
-fn wav_size(f_name: &String) {
-    let mut f = File::open(f_name).unwrap();
-
-    let size = hound::read_wave_header(&mut f).unwrap();
-    println!("size: {:?}", size);
+#[derive(Serialize, Deserialize)]
+struct Datapoint {
+    audio_filepath: String,
+    text: String,
+    duration: f32,
 }
+
 fn main() -> Result<(), glob::PatternError> {
     let start = Instant::now();
     let args = Cli::parse();
     let global_num_threads = current_num_threads();
     println!("num threads: {}", global_num_threads);
 
-    let glob_pattern = args.path.clone().into_os_string().into_string().unwrap() + "/**/*.wav";
-    let entries: Vec<_> = glob(&glob_pattern)?.filter_map(|path| path.ok()).collect();
-    let durations: Vec<_> = entries.par_iter().map(|path| wav_duration2(path)).collect();
-    let iter = std::iter::zip(entries, durations.clone());
+    match &args.command {
+        Command::Stats {
+            path,
+            write_manifest,
+            output_path,
+        } => {
+            let glob_pattern = path.clone().into_os_string().into_string().unwrap() + "/**/*.wav";
+            let entries: Vec<_> = glob(&glob_pattern)?.filter_map(|path| path.ok()).collect();
+            let durations: Vec<_> = entries.par_iter().map(|path| wav_duration2(path)).collect();
+            let iter = std::iter::zip(entries, durations.clone());
 
-    if args.write_manifest {
-        let f_desc = File::create(args.output_path).expect("something went wrong");
-        let mut writer = BufWriter::new(f_desc);
-        for elem in iter {
-            let json_value = json!({
-                "name": elem.0.file_name().unwrap().to_str(),
-                "duration": elem.1.round()});
-            serde_json::to_writer(&mut writer, &json_value).unwrap();
-            write!(writer, "\n").expect("failed to write");
+            if *write_manifest {
+                let f_desc = File::create(output_path).expect("something went wrong");
+                let mut writer = BufWriter::new(f_desc);
+                for elem in iter {
+                    let json_value = serde_json::json!({
+                        "audio_filepath": elem.0.file_name().unwrap().to_str(),
+                        "duration": elem.1.round()});
+                    serde_json::to_writer(&mut writer, &json_value).unwrap();
+                    write!(writer, "\n").expect("failed to write");
+                }
+                writer.flush().unwrap();
+            }
+
+            let total_dur: f32 = durations.iter().sum();
+            let num_entires = durations.len();
+            let exec_duration = start.elapsed();
+
+            println!();
+            println!("Calucalting total duration for directory: {:?}", path);
+            println!("Number of wav files: {}", num_entires);
+            println!("Total duration: {} hours", total_dur / 60.0 / 60.0);
+            println!("Total duration: {} seconds", total_dur);
+            println!("Executed in {:?}", exec_duration);
+            println!();
         }
-        writer.flush().unwrap();
+        Command::Manifest { path } => {
+            let lines = read_lines(path).unwrap();
+            let mut total_dur = 0.0;
+            let mut num_entires = 0;
+            for line in lines {
+                let datapoint: Datapoint = serde_json::from_str(line.unwrap().as_str()).unwrap();
+                total_dur += datapoint.duration;
+                num_entires += 1;
+            }
+
+            let exec_duration = start.elapsed();
+
+            println!();
+            println!("Manifest stats: {:?}", path);
+            println!("Number of wav files: {}", num_entires);
+            println!("Total duration: {} hours", total_dur / 60.0 / 60.0);
+            println!("Total duration: {} seconds", total_dur);
+            println!("Executed in {:?}", exec_duration);
+            println!();
+        }
     }
 
-    let total_dur: f32 = durations.iter().sum();
-    let num_entires = durations.len();
-
-    println!("Calucalting total duration for directory: {:?}", args.path);
-    println!("Number of wav files: {}", num_entires);
-    println!("Total duration: {} hours", total_dur / 60.0 / 60.0);
-    println!("Total duration: {} seconds", total_dur);
-    let exec_duration = start.elapsed();
-    println!("Executed in {:?}", exec_duration);
     Ok(())
 }
