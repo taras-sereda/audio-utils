@@ -35,7 +35,7 @@ use std::{fs::File, path::Path};
 
 mod utils;
 
-use crate::utils::wav_duration2;
+use crate::utils::{wav_duration2, edit_distance};
 
 #[derive(Parser)]
 // #[command(author, version, about, long_about = None)]
@@ -62,6 +62,10 @@ enum Command {
     },
     /// Read audio stats from provided manifest file.
     Manifest { path: std::path::PathBuf },
+    Dist { 
+        text_a: String,
+        text_b: String,
+    },
 }
 
 fn read_lines<P>(filename: P) -> io::Result<io::Lines<BufReader<File>>>
@@ -140,6 +144,16 @@ fn main() -> Result<(), glob::PatternError> {
             println!("Total duration: {} seconds", total_dur);
             println!("Executed in {:?}", exec_duration);
             println!();
+        }
+        Command::Dist { text_a, text_b } => {
+            
+            let dist = edit_distance(&text_a, &text_b);
+            let exec_duration = start.elapsed();
+            println!();
+            println!("text_a {text_a}");
+            println!("text_b {text_b}");
+            println!("Edit distance: {dist}");
+            println!("Executed in {:?}", exec_duration);
         }
     }
 
