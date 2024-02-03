@@ -37,7 +37,12 @@ pub fn wav_size(f_name: &str) {
     println!("size: {:?} bytes", size);
 }
 
-pub fn edit_distance(seq_a: &str, seq_b: &str) -> usize {
+/// As pointed out in Jurafsky's SLP book: https://web.stanford.edu/~jurafsky/slp3/2.pdf
+/// Levenstein also proposed a defintion of edit distance where substitutions are not allowed
+/// This is equivaluent to setting sub_cust = 2, i.e. one subsitution now equals to 1 deletion and 1 insertion
+pub fn edit_distance(seq_a: &str, seq_b: &str, sub_cost: Option<usize>) -> usize {
+    
+
     let seq_a_vec: Vec<char> = seq_a.chars().collect();
     let seq_b_vec: Vec<char> = seq_b.chars().collect();
 
@@ -53,12 +58,18 @@ pub fn edit_distance(seq_a: &str, seq_b: &str) -> usize {
     }
     for i in 1..n_row {
         for j in 1..n_col {
-            let mut cost = 0;
-            if seq_a_vec[i-1] != seq_b_vec[j-1] {
-                cost = 1;
-            }
-            let dist = min(min(trellis[i][j-1], trellis[i-1][j]), trellis[i-1][j-1]);
-            trellis[i][j] = dist + cost;
+
+            let cost = if seq_a_vec[i-1] != seq_b_vec[j-1] {
+                sub_cost.unwrap_or(1)
+            } else {
+                0
+            };
+
+            let min_dist = min(
+                min(trellis[i][j-1] + 1, trellis[i-1][j] + 1), 
+                trellis[i-1][j-1] + cost);
+
+            trellis[i][j] = min_dist;
         }
     }
 
@@ -68,7 +79,6 @@ pub fn edit_distance(seq_a: &str, seq_b: &str) -> usize {
 }
 #[cfg(test)]
 mod tests {
-    use std::time::Instant;
     use crate::utils::{wav_duration, wav_duration2, wav_size};
     use super::edit_distance;
 
@@ -84,17 +94,9 @@ mod tests {
     #[test]
     fn test_edit_distance() {
         
-        let text_1 = "While these aspirations can be at odds with fast build times and low binary size, we will still strive to keep these reasonable for the flexibility you get. Check out the argparse-benchmarks for CLI parsers optimized for other use cases.";
-        let text_2 = "While these aspirations can be at odds with fast build times and low binary size, we will still strive to keep these reasonable for the flexibility you get. Check out the argparse-benchmarks for CLI parsers optimized for other use cases.";
-        let start = Instant::now();
-        let dist_1 = edit_distance(text_1, text_1);
-        println!("Minimum edit distance {dist_1} for strings {text_1} and {text_2}");
-        let duration = start.elapsed();
-        println!("Execution took {duration:?}");
-
-        let text_3 = "intention";
-        let text_4 = "execution";
-        let dist_2 = edit_distance(text_3, text_4);
-        println!("Minimum edit distance {dist_2} for strings {text_3} and {text_4}");
+        let text_a = "intention";
+        let text_b = "execution";
+        let dist = edit_distance(text_a, text_b, Some(2));
+        println!("Minimum edit distance {dist} for strings {text_a} and {text_b}");
     }
 }
