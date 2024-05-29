@@ -23,6 +23,8 @@ paste - -sd+ -  0.01s user 0.03s system 0% cpu 29.345 total
 bc  0.00s user 0.00s system 0% cpu 29.346 total
  */
 
+
+
 use clap::{Parser, Subcommand};
 use glob::glob;
 use rayon::current_num_threads;
@@ -30,12 +32,15 @@ use rayon::prelude::*;
 use serde::{Deserialize, Serialize};
 use std::io;
 use std::io::{BufRead, BufReader, BufWriter, Write};
+use std::path::PathBuf;
 use std::time::Instant;
 use std::{fs::File, path::Path};
+use log::{debug,info};
 
 mod utils;
 
 use crate::utils::{wav_duration2, edit_distance};
+
 
 #[derive(Parser)]
 // #[command(author, version, about, long_about = None)]
@@ -83,11 +88,35 @@ struct Datapoint {
     duration: f32,
 }
 
+fn compute_and_print_stats(path: &PathBuf, durations: Vec<f32>) {
+
+
+    let total_dur: f32 = durations.iter().sum();
+    let num_entires = durations.len();
+    let mut sorted_durations = durations.clone();
+    sorted_durations.sort_by(|a, b| a.partial_cmp(b).unwrap());
+    let min_dur = sorted_durations[0];
+    let max_dur = sorted_durations[num_entires-1];
+    let mean_dur = total_dur / num_entires as f32;
+    let median_dur = sorted_durations[num_entires / 2];
+
+    println!();
+    println!("Calucalting total duration for directory: {:?}", path);
+    println!("Number of wav files: {}", num_entires);
+    println!("Total duration: {:.3} hours; {:.3} seconds", total_dur / 60.0 / 60.0, total_dur);
+    println!("MIN duration: {:.3} sec", min_dur);
+    println!("MAX duration: {:.3} sec", max_dur);
+    println!("MEAN duration: {:.3} sec", mean_dur);
+    println!("MEDIAN duration: {:.3} sec", median_dur);
+    println!();
+
+}
 fn main() -> Result<(), glob::PatternError> {
+    env_logger::init();
     let start = Instant::now();
     let args = Cli::parse();
     let global_num_threads = current_num_threads();
-    println!("num threads: {}", global_num_threads);
+    info!("num threads: {}", global_num_threads);
 
     match &args.command {
         Command::Stats {
@@ -113,48 +142,23 @@ fn main() -> Result<(), glob::PatternError> {
                 writer.flush().unwrap();
             }
 
-            let total_dur: f32 = durations.iter().sum();
-            let num_entires = durations.len();
             let exec_duration = start.elapsed();
-            let mut sorted_durations = durations.clone();
-            sorted_durations.sort_by(|a, b| a.partial_cmp(b).unwrap());
-            let min_dur = sorted_durations[0];
-            let max_dur = sorted_durations[num_entires-1];
-            let mean_dur = total_dur / num_entires as f32;
-            let median_dur = sorted_durations[num_entires / 2];
+            compute_and_print_stats(path, durations);
+            info!("Executed in {:?}", exec_duration);
 
-
-            println!();
-            println!("Calucalting total duration for directory: {:?}", path);
-            println!("Number of wav files: {}", num_entires);
-            println!("Total duration: {:.3} hours / {:.3} seconds", total_dur / 60.0 / 60.0, total_dur);
-            println!("MIN duration: {:.3} sec", min_dur);
-            println!("MAX duration: {:.3} sec", max_dur);
-            println!("MEAN duration: {:.3} sec", mean_dur);
-            println!("MEDIAN duration: {:.3} sec", median_dur);
-
-            println!("Executed in {:?}", exec_duration);
-            println!();
         }
         Command::Manifest { path } => {
             let lines = read_lines(path).unwrap();
-            let mut total_dur = 0.0;
-            let mut num_entires = 0;
+            let mut durations: Vec<f32> = Vec::new();
             for line in lines {
                 let datapoint: Datapoint = serde_json::from_str(line.unwrap().as_str()).unwrap();
-                total_dur += datapoint.duration;
-                num_entires += 1;
+                durations.push(datapoint.duration);
             }
 
             let exec_duration = start.elapsed();
+            compute_and_print_stats(path, durations);
+            info!("Executed in {:?}", exec_duration);
 
-            println!();
-            println!("Manifest stats: {:?}", path);
-            println!("Number of wav files: {}", num_entires);
-            println!("Total duration: {} hours", total_dur / 60.0 / 60.0);
-            println!("Total duration: {} seconds", total_dur);
-            println!("Executed in {:?}", exec_duration);
-            println!();
         }
         Command::Dist { text_a, text_b } => {
             
@@ -164,7 +168,9 @@ fn main() -> Result<(), glob::PatternError> {
             println!("text_a {text_a}");
             println!("text_b {text_b}");
             println!("Edit distance: {dist}");
-            println!("Executed in {:?}", exec_duration);
+            println!();
+            info!("Executed in {:?}", exec_duration);
+            
         }
     }
 
