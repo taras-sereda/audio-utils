@@ -1,7 +1,6 @@
 use hound::WavReader;
-use std::{fs::File, path::Path};
 use std::cmp::min;
-
+use std::{fs::File, path::Path};
 
 pub fn wav_duration2<AR>(f_name: AR) -> f32
 where
@@ -41,8 +40,6 @@ pub fn wav_size(f_name: &str) {
 /// Levenstein also proposed a defintion of edit distance where substitutions are not allowed
 /// This is equivaluent to setting sub_cust = 2, i.e. one subsitution now equals to 1 deletion and 1 insertion
 pub fn edit_distance(seq_a: &str, seq_b: &str, sub_cost: Option<usize>) -> usize {
-    
-
     let seq_a_vec: Vec<char> = seq_a.chars().collect();
     let seq_b_vec: Vec<char> = seq_b.chars().collect();
 
@@ -58,29 +55,27 @@ pub fn edit_distance(seq_a: &str, seq_b: &str, sub_cost: Option<usize>) -> usize
     }
     for i in 1..n_row {
         for j in 1..n_col {
-
-            let cost = if seq_a_vec[i-1] != seq_b_vec[j-1] {
+            let cost = if seq_a_vec[i - 1] != seq_b_vec[j - 1] {
                 sub_cost.unwrap_or(1)
             } else {
                 0
             };
 
             let min_dist = min(
-                min(trellis[i][j-1] + 1, trellis[i-1][j] + 1), 
-                trellis[i-1][j-1] + cost);
+                min(trellis[i][j - 1] + 1, trellis[i - 1][j] + 1),
+                trellis[i - 1][j - 1] + cost,
+            );
 
             trellis[i][j] = min_dist;
         }
     }
 
-    trellis[n_row-1][n_col-1]
-    
-
+    trellis[n_row - 1][n_col - 1]
 }
 #[cfg(test)]
 mod tests {
-    use crate::utils::{wav_duration, wav_duration2, wav_size};
     use super::edit_distance;
+    use crate::utils::{wav_duration, wav_duration2, wav_size};
 
     #[test]
     fn test_example() {
@@ -93,7 +88,6 @@ mod tests {
 
     #[test]
     fn test_edit_distance() {
-        
         let text_a = "intention";
         let text_b = "execution";
         let dist = edit_distance(text_a, text_b, Some(2));

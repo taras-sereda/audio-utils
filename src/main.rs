@@ -23,10 +23,9 @@ paste - -sd+ -  0.01s user 0.03s system 0% cpu 29.345 total
 bc  0.00s user 0.00s system 0% cpu 29.346 total
  */
 
-
-
 use clap::{Parser, Subcommand};
 use glob::glob;
+use log::{debug, info};
 use rayon::current_num_threads;
 use rayon::prelude::*;
 use serde::{Deserialize, Serialize};
@@ -35,12 +34,10 @@ use std::io::{BufRead, BufReader, BufWriter, Write};
 use std::path::PathBuf;
 use std::time::Instant;
 use std::{fs::File, path::Path};
-use log::{debug,info};
 
 mod utils;
 
-use crate::utils::{wav_duration2, edit_distance};
-
+use crate::utils::{edit_distance, wav_duration2};
 
 #[derive(Parser)]
 // #[command(author, version, about, long_about = None)]
@@ -66,8 +63,10 @@ enum Command {
         output_path: String,
     },
     /// Read audio stats from provided manifest file.
-    Manifest { path: std::path::PathBuf },
-    Dist { 
+    Manifest {
+        path: std::path::PathBuf,
+    },
+    Dist {
         text_a: String,
         text_b: String,
     },
@@ -89,27 +88,28 @@ struct Datapoint {
 }
 
 fn compute_and_print_stats(path: &PathBuf, durations: Vec<f32>) {
-
-
     let total_dur: f32 = durations.iter().sum();
     let num_entires = durations.len();
     let mut sorted_durations = durations.clone();
     sorted_durations.sort_by(|a, b| a.partial_cmp(b).unwrap());
     let min_dur = sorted_durations[0];
-    let max_dur = sorted_durations[num_entires-1];
+    let max_dur = sorted_durations[num_entires - 1];
     let mean_dur = total_dur / num_entires as f32;
     let median_dur = sorted_durations[num_entires / 2];
 
     println!();
     println!("Calucalting total duration for directory: {:?}", path);
     println!("Number of wav files: {}", num_entires);
-    println!("Total duration: {:.3} hours; {:.3} seconds", total_dur / 60.0 / 60.0, total_dur);
+    println!(
+        "Total duration: {:.3} hours; {:.3} seconds",
+        total_dur / 60.0 / 60.0,
+        total_dur
+    );
     println!("MIN duration: {:.3} sec", min_dur);
     println!("MAX duration: {:.3} sec", max_dur);
     println!("MEAN duration: {:.3} sec", mean_dur);
     println!("MEDIAN duration: {:.3} sec", median_dur);
     println!();
-
 }
 fn main() -> Result<(), glob::PatternError> {
     env_logger::init();
@@ -145,7 +145,6 @@ fn main() -> Result<(), glob::PatternError> {
             let exec_duration = start.elapsed();
             compute_and_print_stats(path, durations);
             info!("Executed in {:?}", exec_duration);
-
         }
         Command::Manifest { path } => {
             let lines = read_lines(path).unwrap();
@@ -158,10 +157,8 @@ fn main() -> Result<(), glob::PatternError> {
             let exec_duration = start.elapsed();
             compute_and_print_stats(path, durations);
             info!("Executed in {:?}", exec_duration);
-
         }
         Command::Dist { text_a, text_b } => {
-            
             let dist = edit_distance(&text_a, &text_b, Some(1));
             let exec_duration = start.elapsed();
             println!();
@@ -170,7 +167,6 @@ fn main() -> Result<(), glob::PatternError> {
             println!("Edit distance: {dist}");
             println!();
             info!("Executed in {:?}", exec_duration);
-            
         }
     }
 
