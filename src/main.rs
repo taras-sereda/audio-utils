@@ -116,12 +116,23 @@ fn main() -> Result<(), glob::PatternError> {
             let total_dur: f32 = durations.iter().sum();
             let num_entires = durations.len();
             let exec_duration = start.elapsed();
+            let mut sorted_durations = durations.clone();
+            sorted_durations.sort_by(|a, b| a.partial_cmp(b).unwrap());
+            let min_dur = sorted_durations[0];
+            let max_dur = sorted_durations[num_entires-1];
+            let mean_dur = total_dur / num_entires as f32;
+            let median_dur = sorted_durations[num_entires / 2];
+
 
             println!();
             println!("Calucalting total duration for directory: {:?}", path);
             println!("Number of wav files: {}", num_entires);
-            println!("Total duration: {} hours", total_dur / 60.0 / 60.0);
-            println!("Total duration: {} seconds", total_dur);
+            println!("Total duration: {:.3} hours / {:.3} seconds", total_dur / 60.0 / 60.0, total_dur);
+            println!("MIN duration: {:.3} sec", min_dur);
+            println!("MAX duration: {:.3} sec", max_dur);
+            println!("MEAN duration: {:.3} sec", mean_dur);
+            println!("MEDIAN duration: {:.3} sec", median_dur);
+
             println!("Executed in {:?}", exec_duration);
             println!();
         }
