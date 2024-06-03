@@ -38,11 +38,9 @@ pub fn wav_size(f_name: &str) {
 }
 
 pub fn edit_distance(seq_a: &str, seq_b: &str) -> usize {
-    let seq_a_vec: Vec<char> = seq_a.chars().collect();
-    let seq_b_vec: Vec<char> = seq_b.chars().collect();
 
-    let n_row = seq_a_vec.len() + 1;
-    let n_col = seq_b_vec.len() + 1;
+    let n_row = seq_a.chars().count() + 1;
+    let n_col = seq_b.chars().count() + 1;
 
     let mut trellis = vec![vec![0; n_col]; n_row];
     for i in 0..n_row {
@@ -51,21 +49,19 @@ pub fn edit_distance(seq_a: &str, seq_b: &str) -> usize {
     for j in 0..n_col {
         trellis[0][j] = j;
     }
-    for i in 1..n_row {
-        for j in 1..n_col {
-            let mut cost = 0;
-            if seq_a_vec[i-1] != seq_b_vec[j-1] {
-                cost = 1;
-            }
-            let dist = min(min(trellis[i][j-1], trellis[i-1][j]), trellis[i-1][j-1]);
-            trellis[i][j] = dist + cost;
+
+    for (i, char_a) in seq_a.char_indices() {
+        for (j, char_b) in seq_b.char_indices() {
+            let cost = (char_a != char_b) as usize;
+            let dist = min(min(trellis[i+1][j], trellis[i][j+1]), trellis[i][j]);
+            trellis[i+1][j+1] = dist + cost;
         }
     }
 
     trellis[n_row-1][n_col-1]
     
-
 }
+
 #[cfg(test)]
 mod tests {
     use std::time::Instant;
@@ -84,13 +80,13 @@ mod tests {
     #[test]
     fn test_edit_distance() {
         
-        let text_1 = "While these aspirations can be at odds with fast build times and low binary size, we will still strive to keep these reasonable for the flexibility you get. Check out the argparse-benchmarks for CLI parsers optimized for other use cases.";
-        let text_2 = "While these aspirations can be at odds with fast build times and low binary size, we will still strive to keep these reasonable for the flexibility you get. Check out the argparse-benchmarks for CLI parsers optimized for other use cases.";
-        let start = Instant::now();
-        let dist_1 = edit_distance(text_1, text_1);
-        println!("Minimum edit distance {dist_1} for strings {text_1} and {text_2}");
-        let duration = start.elapsed();
-        println!("Execution took {duration:?}");
+        // let text_1 = "While these aspirations can be at odds with fast build times and low binary size, we will still strive to keep these reasonable for the flexibility you get. Check out the argparse-benchmarks for CLI parsers optimized for other use cases.";
+        // let text_2 = "While these aspirations can be at odds with fast build times and low binary size, we will still strive to keep these reasonable for the flexibility you get. Check out the argparse-benchmarks for CLI parsers optimized for other use cases.";
+        // let start = Instant::now();
+        // let dist_1 = edit_distance(text_1, text_1);
+        // println!("Minimum edit distance {dist_1} for strings {text_1} and {text_2}");
+        // let duration = start.elapsed();
+        // println!("Execution took {duration:?}");
 
         let text_3 = "intention";
         let text_4 = "execution";

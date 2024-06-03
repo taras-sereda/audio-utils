@@ -148,8 +148,10 @@ fn main() -> Result<(), glob::PatternError> {
         }
         Command::Dist { text_a, text_b } => {
             
+            
+            let start2 = Instant::now();
             let dist = edit_distance(&text_a, &text_b);
-            let exec_duration = start.elapsed();
+            let exec_duration = start2.elapsed();
             println!();
             println!("text_a {text_a}");
             println!("text_b {text_b}");
