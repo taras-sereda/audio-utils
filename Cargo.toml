@@ -17,6 +17,10 @@ symphonia = { version = "0.5.4", features = ["all", "opt-simd"] }
 pretty_env_logger = "0.4"
 lazy_static = "1.4.0"
 env_logger = "0.11.3"
+anyhow = "1.0.86"
+ort = "2.0.0-rc.2"
+ndarray = { version = "0.15.6", features = ["blas"] }
+
 
 [target.'cfg(target_os = "linux")'.dependencies]
 libpulse-binding = "2.5.0"
