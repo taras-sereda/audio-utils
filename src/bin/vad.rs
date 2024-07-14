@@ -1,9 +1,48 @@
+// USAGE: cargo run --bin vad <audio_path>
+
+
 use ndarray::prelude::*;
 use ndarray::{Array, ArrayD, Ix1, Ix2, IxDyn};
 use ort::{GraphOptimizationLevel, Session, SessionInputs};
+use std::env;
 use std::error::Error;
+
 fn main() -> Result<(), Box<dyn Error>> {
-    let ckpt_path = "/Users/tarassereda/rust_projects/audio-utils/src/ckpt/silero_vad.onnx";
+    let current_dir = env::current_dir()?;
+    let ckpt_path = current_dir.join("src/ckpt/silero_vad.onnx");
+    
+    let audio_path = std::env::args()
+        .nth(1)
+        .unwrap_or_else(|| current_dir.join("examples/LJ001-0051.wav").into_os_string().into_string().unwrap());
+    let mut wav_reader = hound::WavReader::open(audio_path).unwrap();
+    let sample_rate = match wav_reader.spec().sample_rate {
+        8000 => audio_utils::utils::SampleRate::EightkHz,
+        16000 => audio_utils::utils::SampleRate::SixteenkHz,
+        _ => panic!("Unsupported sample rate. Expect 8 kHz or 16 kHz."),
+    };
+    if wav_reader.spec().sample_format != hound::SampleFormat::Int {
+        panic!("Unsupported sample format. Expect Int.");
+    }
+    let content = wav_reader
+        .samples()
+        .filter_map(|x| x.ok())
+        .collect::<Vec<i16>>();
+    assert!(!content.is_empty());
+    let silero = audio_utils::silero::Silero::new(sample_rate, ckpt_path.clone()).unwrap();
+    let vad_params = audio_utils::utils::VadParams {
+        sample_rate: sample_rate.into(),
+        ..Default::default()
+    };
+    let mut vad_iterator = audio_utils::vad_iter::VadIter::new(silero, vad_params);
+    vad_iterator.process(&content).unwrap();
+    for timestamp in vad_iterator.speeches() {
+        let speech_start = timestamp.start as f32 / 16000.0;
+        let speech_end = timestamp.end as f32 / 16000.0;
+
+        println!("Speech start:{} sec; end: {} sec.", speech_start, speech_end);
+    }
+    println!("Finished.");
+    
 
     let session = Session::builder()?
         .with_optimization_level(GraphOptimizationLevel::Level3)?
