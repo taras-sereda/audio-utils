@@ -30,9 +30,18 @@ impl VadIter {
     pub fn speeches(&self) -> &[utils::TimeStamp] {
         &self.state.speeches
     }
-}
 
-impl VadIter {
+    pub fn is_speech(&mut self, samples: &[i16]) -> Result<bool, ort::Error> {
+        self.reset_states();
+        for audio_seg in samples.chunks_exact(self.params.frame_size_samples) {
+            let speech_prob = self.silero.calc_level(audio_seg)?;
+            if speech_prob > self.params.threshold {
+                return Ok(true)
+            }
+        }
+        Ok(false)
+    }
+
     fn reset_states(&mut self) {
         self.silero.reset();
         self.state = State::new()
