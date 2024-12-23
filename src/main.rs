@@ -127,15 +127,16 @@ fn main() -> Result<(), glob::PatternError> {
             let glob_pattern = path.clone().into_os_string().into_string().unwrap() + "/**/*.wav";
             let entries: Vec<_> = glob(&glob_pattern)?.filter_map(|path| path.ok()).collect();
             let durations: Vec<_> = entries.par_iter().map(|path| wav_duration2(path)).collect();
-            let iter = std::iter::zip(entries, durations.clone());
 
             if *write_manifest {
                 let f_desc = File::create(output_path).expect("something went wrong");
                 let mut writer = BufWriter::new(f_desc);
+                let iter = std::iter::zip(entries, &durations);
                 for elem in iter {
                     let json_value = serde_json::json!({
                         "audio_filepath": elem.0.file_name().unwrap().to_str(),
-                        "duration": elem.1.round()});
+                        "duration": elem.1 
+                    });
                     serde_json::to_writer(&mut writer, &json_value).unwrap();
                     write!(writer, "\n").expect("failed to write");
                 }
