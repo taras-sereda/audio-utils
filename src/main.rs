@@ -135,7 +135,8 @@ fn main() -> Result<(), glob::PatternError> {
                 for elem in iter {
                     let json_value = serde_json::json!({
                         "audio_filepath": elem.0,
-                        "duration": elem.1 
+                        "id": elem.0.file_stem().unwrap().to_str(),
+                        "duration": elem.1
                     });
                     serde_json::to_writer(&mut writer, &json_value).unwrap();
                     write!(writer, "\n").expect("failed to write");
