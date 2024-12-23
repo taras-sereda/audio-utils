@@ -87,7 +87,7 @@ struct Datapoint {
     duration: f32,
 }
 
-fn compute_and_print_stats(path: &PathBuf, durations: Vec<f32>) {
+fn compute_and_print_stats(path: &PathBuf, durations: &Vec<f32>) {
     let total_dur: f32 = durations.iter().sum();
     let num_entires = durations.len();
     let mut sorted_durations = durations.clone();
@@ -134,7 +134,7 @@ fn main() -> Result<(), glob::PatternError> {
                 let iter = std::iter::zip(entries, &durations);
                 for elem in iter {
                     let json_value = serde_json::json!({
-                        "audio_filepath": elem.0.file_name().unwrap().to_str(),
+                        "audio_filepath": elem.0,
                         "duration": elem.1 
                     });
                     serde_json::to_writer(&mut writer, &json_value).unwrap();
@@ -144,7 +144,7 @@ fn main() -> Result<(), glob::PatternError> {
             }
 
             let exec_duration = start.elapsed();
-            compute_and_print_stats(path, durations);
+            compute_and_print_stats(path, &durations);
             info!("Executed in {:?}", exec_duration);
         }
         Command::Manifest { path } => {
@@ -156,7 +156,7 @@ fn main() -> Result<(), glob::PatternError> {
             }
 
             let exec_duration = start.elapsed();
-            compute_and_print_stats(path, durations);
+            compute_and_print_stats(path, &durations);
             info!("Executed in {:?}", exec_duration);
         }
         Command::Dist { text_a, text_b } => {
